@@ -5,8 +5,21 @@ import sqlite3
 
 #Define variables
 DATABASE = 'school_info.db'
+display_structure = "1"
+zero = 0
 
 #Make functions
+def check_if_exists(first_name):
+    '''A function to check if there is a child in the table with the given first name'''
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT COUNT(child_id)
+FROM children
+WHERE first_name = "''' + first_name + '";' #Count the number of rows with the given first name
+        cursor.execute(sql)
+        results = cursor.fetchall() #Results should be zero if the child does not exist
+        return results
+
 def print_info(columns):
     with sqlite3.connect(DATABASE) as db:
         cursor = db.cursor()
@@ -21,14 +34,25 @@ def print_named_info(columns, firstname):
         cursor = db.cursor()
         sql = "SELECT " + columns + ''' 
         FROM children 
-        WHERE first_name = ''' + firstname.title() + ';'
+        WHERE first_name = "''' + firstname + '";'
         cursor.execute(sql)
         results = cursor.fetchall()
-        for value in results:
-            print(value)
+        num_values = check_if_exists(firstname)
+        print(num_values)
+        if num_values != zero:
+            for value in results:
+                try:
+                    print(f"{value[0]} {value[1]}, {value[2]}")
+                except:
+                    try:
+                        print(f"{value[0]}\n{value[1]}")
+                    except:
+                        print("Error")
+        else:
+            print('Child not found')
 
 def veiw_info():
-    while:
+    while True:
         user_input = input('''What would you like to veiw?
     1. All information
     2. All Children's names
@@ -39,15 +63,17 @@ def veiw_info():
         if user_input == "1":
             print_info("*")
         elif user_input == "2":
-            print_info("child_id, first_name, second_name")
+            print_info("first_name, second_name")
         elif user_input == "3":
             print_info("parent_phone, parent_email")
         elif user_input == "4":
+            display_structure = "1"
             user_input = input("Please enter the child's first name:\n")
-            print_named_info("child_id, first_name, second_name, age", user_input)
+            print_named_info("first_name, second_name, age", user_input)
         elif user_input == "5":
+            display_structure = "2"
             user_input = input("Please enter the child's first name:\n")
-            print_named_info("child_id, parent_phone, parent_email", user_input)
+            print_named_info("parent_phone, parent_email", user_input)
         elif user_input == "6":
             break
         else:
@@ -55,7 +81,13 @@ def veiw_info():
 
 def edit_info():
     while True:
-        user_input = input('''What child would you like to edit?''')
+        user_input = input('''Enter the name of the child who you would like to edit.
+    Leave blank to go back.''')
+        if user_input == '':
+            break
+        print('Unavailable')
+        break
+
 
 #Main loop
 while True:
@@ -69,6 +101,7 @@ while True:
         veiw_info()
     elif user_input == '2':
         print('You have chosen to edit information')
+        edit_info()
     elif user_input == '3':
         print('You have chosen to add/remove information')
     elif user_input == '4':
