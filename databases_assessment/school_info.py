@@ -5,6 +5,7 @@ import sqlite3
 
 #Define variables
 DATABASE = 'school_info.db'
+stop_action = 'cancel'
 zero = 0
 one = 1
 two = 2
@@ -63,23 +64,30 @@ def print_named_info(columns, firstname):
             print('Child not found')
 
 def change_child_info(name, column):
+    '''Edit the basic info of a child given a name and column to change'''
     new_value = input(f'''What would you like to change the {column} 
 of {name} to?\n''')
     with sqlite3.connect(DATABASE) as db:
         cursor = db.cursor()
         sql = '''UPDATE children
         SET ''' + column + ' = '
-        if column != "age":
-            if column != "parent_phone":
-                sql = sql + '"'
+        if column != "age" and column != "parent_phone":
+            sql = sql + '"'
         sql = sql + new_value
-        if column != "age":
-            if column != "parent_phone":
-                sql = sql + '"'
+        if column != "age" and column != "parent_phone":
+            sql = sql + '"'
         sql = sql + ''' 
         WHERE first_name = "''' + name +'";'
         cursor.execute(sql)
         print('Change complete')   
+
+def add_child(firstname, lastname, age, parentphone, parentemail):
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = f'''INSERT INTO children (first_name, second_name, age, parent_phone, parent_email)
+VALUES ("{firstname}", "{lastname}", {age}, {parentphone}, "{parentemail}");'''
+        cursor.execute(sql)
+        print('Addition successful')
 
 
 #Main 4 functions
@@ -111,8 +119,8 @@ def veiw_info():
 
 def edit_info():
     while True:
-        child_name = input('''Enter the first name of the child whom
- you would like to edit.
+        child_name = input('''Enter the first name of the child whose
+information you would like to edit.
 Leave blank to go back.\n''')
         if child_name == '':
             break
@@ -138,6 +146,53 @@ Leave blank to go back.\n''')
                 if user_input == str_five:
                     change_child_info(child_name, "parent_email")
 
+def new_child():
+    while True:
+        num_blank = 0
+        user_input = input('''Enter the first name of the new child.
+Enter "cancel" at any point to go back, or leave blank if unknown.\n''')
+        if user_input.lower() == stop_action:
+            break
+        else:
+            if user_input == '':
+                num_blank += 1
+            first_name = user_input.title()
+        user_input = input('Enter the last name:\n')
+        if user_input.lower() == stop_action:
+            break
+        else:
+            if user_input == '':
+                num_blank += 1
+            last_name = user_input.title()
+        user_input = input('Enter the age:\n')
+        if user_input.lower() == stop_action:
+            break
+        else:
+            if user_input == '':
+                num_blank += 1
+            age = user_input
+        user_input = input("Enter the parent's phone number:\n")
+        if user_input.lower() == stop_action:
+            break
+        else:
+            if user_input == '':
+                num_blank += 1
+            parent_phone = user_input
+        user_input = input("Enter the parent's email address:\n")
+        if user_input.lower() == stop_action:
+            break
+        else:
+            if user_input == '':
+                num_blank += 1
+            parent_email = user_input
+        if num_blank == 6:
+            print('At least one value must be entered. Try again.')
+        else:
+            add_child(first_name, last_name, age, parent_phone, parent_email)
+
+def delete_child():
+    print('Unavailable')
+
 
 #Main loop
 while True:
@@ -147,17 +202,19 @@ while True:
     3. Add a child
     4. Remove a child
     5. Exit\n''')
-    if user_input == '1':
+    if user_input == str_one:
         print('You have chosen to veiw information.')
         veiw_info()
-    elif user_input == '2':
+    elif user_input == str_two:
         print('You have chosen to edit information')
         edit_info()
-    elif user_input == '3':
-        print('You have chosen to add information')
-    elif user_input == '4':
-        print('You have chosen to remove information')
-    elif user_input == '5':
+    elif user_input == str_three:
+        print('You have chosen to add a child')
+        new_child()
+    elif user_input == str_four:
+        print('You have chosen to remove a child')
+        delete_child()
+    elif user_input == str_five:
         break
     else:
         print('That is not a valid input')
