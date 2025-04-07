@@ -63,6 +63,16 @@ def print_named_info(columns, firstname):
         else:
             print('Child not found')
 
+def print_both_names(firstname, lastname):
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT first_name, second_name, age FROM children WHERE first_name = "'''
+        sql = sql + firstname + '''" AND second_name = "''' + lastname + '";'
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        for value in results:
+            print(f'{value[0]} {value[1]}, {value[2]}')
+
 def change_child_info(name, column):
     '''Edit the basic info of a child given a name and column to change'''
     new_value = input(f'''What would you like to change the {column} 
@@ -109,6 +119,19 @@ def add_child(firstname, lastname, age, parentphone, parentemail):
         sql = sql + ');'
         cursor.execute(sql)
         print('Addition successful')
+
+def remove_row(firstname, lastname):
+    if lastname:
+        with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = "DELETE FROM children WHERE first_name = '" + firstname + "' AND second_name = '" + lastname + "';"
+        cursor.execute(sql)
+    else:
+        with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = "DELETE FROM children WHERE first_name = '" + firstname + "';"
+        cursor.execute(sql)
+    
 
 
 #Main 4 functions
@@ -213,13 +236,30 @@ Enter "cancel" at any point to go back, or leave blank if unknown.\n''')
 
 def delete_child():
     while True:
-        print('You have chosen to delete a child.')
-        user_input = input('Please enter the first name of the child you wish to remove\n')
-        results = check_num_values(user_input)
-        if results == zero:
-            print('Child not found. Please check spelling and try again.')
-        elif results == one:
-            print('Is this the child you want to remove? (Y/N)')
+        first_name = input('Please enter the first name of the child you wish to remove. Enter "back" to go back.\n')
+        if first_name.lower() == 'back':
+            break
+        else:
+            results = check_num_values(first_name)
+            if results == zero:
+                print('Child not found. Please check spelling and try again.')
+            elif results == one:
+                print_named_info("first_name, second_name, age", first_name)
+                print('Is this the child you want to remove? (Y/N)')
+                user_input = input('Is this the child you want to remove? (Y/N)\n')
+                if user_input.lower() == 'y':
+                    remove_row(first_name, '')
+                elif user_input.lower() == 'n':
+                    break
+            elif results >= two:
+                print('Multiple results found.')
+                last_name = input("Please enter the child's last name\n")
+                print('Is this the child you wish to delete? (Y/N)')
+                print_both_names(first_name, last_name)
+                user_input = input()
+                if user_input.lower() == 'y':
+                    remove_row(first_name, last_name)
+                
 
 
 #Main loop
