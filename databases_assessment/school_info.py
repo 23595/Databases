@@ -21,7 +21,7 @@ str_six = '6'
 #Small functions first
 def check_num_values(first_name):
     '''A function to check if there is a child
-in the table with the given first name'''
+in the table with the given first name. Returns int'''
     with sqlite3.connect(DATABASE) as db:
         cursor = db.cursor()
         sql = '''SELECT COUNT(child_id)
@@ -84,8 +84,29 @@ of {name} to?\n''')
 def add_child(firstname, lastname, age, parentphone, parentemail):
     with sqlite3.connect(DATABASE) as db:
         cursor = db.cursor()
-        sql = f'''INSERT INTO children (first_name, second_name, age, parent_phone, parent_email)
-VALUES ("{firstname}", "{lastname}", {age}, {parentphone}, "{parentemail}");'''
+        sql = f'INSERT INTO children (' 
+        if firstname:
+            sql = sql + "first_name"
+        if lastname:
+            sql = sql + ", second_name"
+        if age:
+            sql = sql + ", age"
+        if parentphone:
+            sql = sql + ", parent_phone"
+        if parentemail:
+            sql = sql + ", parent_email"
+        sql = sql + ') VALUES ('
+        if firstname:
+            sql = sql + '"' + firstname + '"'
+        if lastname:
+            sql = sql + ', "' + lastname + '"'
+        if age:
+            sql = sql + ', ' + age
+        if parentphone:
+            sql = sql + ", " + parentphone
+        if parentemail:
+            sql = sql + ', "' + parentemail + '"'
+        sql = sql + ');'
         cursor.execute(sql)
         print('Addition successful')
 
@@ -185,13 +206,20 @@ Enter "cancel" at any point to go back, or leave blank if unknown.\n''')
             if user_input == '':
                 num_blank += 1
             parent_email = user_input
-        if num_blank == 6:
+        if num_blank == 5:
             print('At least one value must be entered. Try again.')
         else:
             add_child(first_name, last_name, age, parent_phone, parent_email)
 
 def delete_child():
-    print('Unavailable')
+    while True:
+        print('You have chosen to delete a child.')
+        user_input = input('Please enter the first name of the child you wish to remove\n')
+        results = check_num_values(user_input)
+        if results == zero:
+            print('Child not found. Please check spelling and try again.')
+        elif results == one:
+            print('Is this the child you want to remove? (Y/N)')
 
 
 #Main loop
