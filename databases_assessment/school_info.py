@@ -6,9 +6,11 @@ import sqlite3
 #Define variables
 DATABASE = 'school_info.db'
 stop_action = 'cancel'
+login_complete = 0
 zero = 0
 one = 1
 two = 2
+three = 3
 str_zero = '0'
 str_one = '1'
 str_two = '2'
@@ -31,6 +33,36 @@ WHERE first_name = "''' + first_name + '";' #Count the number of rows with the g
         results = cursor.fetchall() #Results should be zero if the child does not exist
         for result in results:
             return result[zero]
+        
+def check_if_valid(username):
+    '''A function to check if the inputed username
+exists and is valid in the passwords table'''
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT COUNT(teacher_id)
+FROM passwords
+WHERE username = "''' + username + '";' #Count the number of rows with the given username
+        cursor.execute(sql)
+        results = cursor.fetchall() #Results should be zero either one or zero
+        for result in results:
+            return result[zero]
+
+def check_password(username, password):
+    '''A function to check if the inputed password matches the username.
+    Returns True/False'''
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT password 
+FROM passwords
+WHERE username = "''' + username + '";' #Summon the correct password for the username
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        for result in results:
+            correct_pw = result[zero]
+        if password == correct_pw:
+            return True
+        else:
+            return False
 
 def print_info(columns):
     '''Print information in the "children" table
@@ -123,14 +155,18 @@ def add_child(firstname, lastname, age, parentphone, parentemail):
 def remove_row(firstname, lastname):
     if lastname:
         with sqlite3.connect(DATABASE) as db:
-        cursor = db.cursor()
-        sql = "DELETE FROM children WHERE first_name = '" + firstname + "' AND second_name = '" + lastname + "';"
-        cursor.execute(sql)
+            cursor = db.cursor()
+            lastname = lastname.title()
+            firstname = firstname.title()
+            sql = "DELETE FROM children WHERE first_name = '" + firstname + "' AND second_name = '" + lastname + "';"
+            cursor.execute(sql)
     else:
         with sqlite3.connect(DATABASE) as db:
-        cursor = db.cursor()
-        sql = "DELETE FROM children WHERE first_name = '" + firstname + "';"
-        cursor.execute(sql)
+            cursor = db.cursor()
+            firstname = firstname.title()
+            sql = "DELETE FROM children WHERE first_name = '" + firstname + "';"
+            cursor.execute(sql)
+    print('Action Complete.')
     
 
 
@@ -240,12 +276,11 @@ def delete_child():
         if first_name.lower() == 'back':
             break
         else:
-            results = check_num_values(first_name)
+            results = check_num_values(first_name.title())
             if results == zero:
                 print('Child not found. Please check spelling and try again.')
             elif results == one:
-                print_named_info("first_name, second_name, age", first_name)
-                print('Is this the child you want to remove? (Y/N)')
+                print_named_info("first_name, second_name, age", first_name.title())
                 user_input = input('Is this the child you want to remove? (Y/N)\n')
                 if user_input.lower() == 'y':
                     remove_row(first_name, '')
@@ -253,36 +288,65 @@ def delete_child():
                     break
             elif results >= two:
                 print('Multiple results found.')
-                last_name = input("Please enter the child's last name\n")
+                last_name = input("Please enter the child's last name.\n")
                 print('Is this the child you wish to delete? (Y/N)')
-                print_both_names(first_name, last_name)
+                print_both_names(first_name.title(), last_name.title())
                 user_input = input()
                 if user_input.lower() == 'y':
                     remove_row(first_name, last_name)
                 
 
 
+def login():
+    login_complete = zero
+    login_attempts = three
+    while login_complete == zero:
+        user_input = input('Please enter username.\n')
+        username = user_input.title()
+        if check_if_valid(username) == zero:
+            print('Invalid username. Check spelling and try again')
+        else:
+            while True:
+                if login_attempts == zero:
+                    print('All attempts used. Try again later.')
+                    login_complete -= 1
+                    break
+                user_input = input('Please enter password.\n')
+                if check_password(username, user_input):
+                    print('Password correct.')
+                    login_complete = one
+                    break
+                else:
+                    print('Password incorrect.')
+                    login_attempts -= 1
+                    print(f'You have {login_attempts} attempt(s) remaining')
+
+
 #Main loop
-while True:
-    user_input = input('''What would you like to do?
-    1. Veiw information
-    2. Edit information
-    3. Add a child
-    4. Remove a child
-    5. Exit\n''')
-    if user_input == str_one:
-        print('You have chosen to veiw information.')
-        veiw_info()
-    elif user_input == str_two:
-        print('You have chosen to edit information')
-        edit_info()
-    elif user_input == str_three:
-        print('You have chosen to add a child')
-        new_child()
-    elif user_input == str_four:
-        print('You have chosen to remove a child')
-        delete_child()
-    elif user_input == str_five:
-        break
-    else:
-        print('That is not a valid input')
+login()
+if login_complete == one:
+    while True:
+        user_input = input('''What would you like to do?
+        1. Veiw information
+        2. Edit information
+        3. Add a child
+        4. Remove a child
+        5. Exit\n''')
+        if user_input == str_one:
+            print('You have chosen to veiw information.')
+            veiw_info()
+        elif user_input == str_two:
+            print('You have chosen to edit information')
+            edit_info()
+        elif user_input == str_three:
+            print('You have chosen to add a child')
+            new_child()
+        elif user_input == str_four:
+            print('You have chosen to remove a child')
+            delete_child()
+        elif user_input == str_five:
+            break
+        else:
+            print('That is not a valid input')
+else:
+    pass
