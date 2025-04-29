@@ -20,7 +20,7 @@ str_five = '5'
 str_six = '6'
 
 #Make functions:
-#Small functions first
+#Functions to check things
 def check_num_values(first_name):
     '''A function to check if there is a child
 in the table with the given first name. Returns int'''
@@ -36,14 +36,15 @@ WHERE first_name = "''' + first_name + '";' #Count the number of rows with the g
         
 def check_if_valid(username):
     '''A function to check if the inputed username
-exists and is valid in the passwords table'''
+exists and is valid in the passwords table. Returns 0 or 1'''
+    username = username.lower()
     with sqlite3.connect(DATABASE) as db:
         cursor = db.cursor()
         sql = '''SELECT COUNT(teacher_id)
 FROM passwords
 WHERE username = "''' + username + '";' #Count the number of rows with the given username
         cursor.execute(sql)
-        results = cursor.fetchall() #Results should be zero either one or zero
+        results = cursor.fetchall() #Results should be either one or zero
         for result in results:
             return result[zero]
 
@@ -58,11 +59,25 @@ WHERE username = "''' + username + '";' #Summon the correct password for the use
         cursor.execute(sql)
         results = cursor.fetchall()
         for result in results:
-            correct_pw = result[zero]
+            correct = result[zero]
+        correct_pw = correct
         if password == correct_pw:
             return True
         else:
             return False
+
+def check_number_teachers():
+    '''Counts the number of teachers in the 'passwords' table. Returns int.'''
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT COUNT(teacher_id)
+FROM passwords;''' #Count the number of rows in the table
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        for result in results:
+            return result[zero]
+        
+#Functions to print things
 
 def print_info(columns):
     '''Print information in the "children" table
@@ -105,6 +120,35 @@ def print_both_names(firstname, lastname):
         for value in results:
             print(f'{value[0]} {value[1]}, {value[2]}')
 
+
+#Other functions with SQL
+
+#Remove things:
+def remove_teacher(username):
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = "DELETE FROM passwords WHERE username = '" + username + "';"
+        cursor.execute(sql)
+        print('Teacher deleted.')
+
+def remove_child(firstname, lastname):
+    if lastname:
+        with sqlite3.connect(DATABASE) as db:
+            cursor = db.cursor()
+            lastname = lastname.title()
+            firstname = firstname.title()
+            sql = "DELETE FROM children WHERE first_name = '" + firstname + "' AND second_name = '" + lastname + "';"
+            cursor.execute(sql)
+    else:
+        with sqlite3.connect(DATABASE) as db:
+            cursor = db.cursor()
+            firstname = firstname.title()
+            sql = "DELETE FROM children WHERE first_name = '" + firstname + "';"
+            cursor.execute(sql)
+    print('Action Complete.')
+
+
+#Edit existing things:
 def change_child_info(name, column):
     '''Edit the basic info of a child given a name and column to change'''
     new_value = input(f'''What would you like to change the {column} 
@@ -123,6 +167,8 @@ of {name} to?\n''')
         cursor.execute(sql)
         print('Change complete')   
 
+
+#Add new things (SQL bits):
 def add_child(firstname, lastname, age, parentphone, parentemail):
     with sqlite3.connect(DATABASE) as db:
         cursor = db.cursor()
@@ -152,28 +198,100 @@ def add_child(firstname, lastname, age, parentphone, parentemail):
         cursor.execute(sql)
         print('Addition successful')
 
-def remove_row(firstname, lastname):
-    if lastname:
-        with sqlite3.connect(DATABASE) as db:
-            cursor = db.cursor()
-            lastname = lastname.title()
-            firstname = firstname.title()
-            sql = "DELETE FROM children WHERE first_name = '" + firstname + "' AND second_name = '" + lastname + "';"
-            cursor.execute(sql)
+def create_teacher(username, password):
+    with sqlite3.connect(DATABASE) as db:
+        username = username.lower()
+        cursor = db.cursor()
+        sql = "INSERT INTO passwords (username, password)"
+        sql = sql + " VALUES ('" + username + "', '" + password + "');"
+        cursor.execute(sql)
+
+
+
+#Other functions without SQL:
+
+def add_teacher():
+    user_input = input('Please enter the username of the new teacher. Enter "back" to go back.\n')
+    if check_if_valid(user_input) != zero:
+        print('This username is already taken.')
+    elif user_input == '':
+        print('Error: Please enter a username.')
     else:
-        with sqlite3.connect(DATABASE) as db:
-            cursor = db.cursor()
-            firstname = firstname.title()
-            sql = "DELETE FROM children WHERE first_name = '" + firstname + "';"
-            cursor.execute(sql)
-    print('Action Complete.')
+        username = user_input
+        user_input = str_one
+        password = str_zero
+        while user_input != password:
+            password = input('Please enter the password for the new teacher. Enter "back" to go back.\n')
+            if password == 'back':
+                break
+            elif password == '':
+                print('Error: please enter a password.')
+            else:
+                user_input = input('Re-enter password to confirm.\n')
+                if user_input != password:
+                    print('Inputs do not match. Please try again.')
+                else:
+                   print('Password confirmed.')
+                   create_teacher(username, password)
+                   print('Teacher added successfully.')
+
+def delete_teacher():
+    '''Function to check if a teacher exists, ask for password, and delete.'''
+    user_input = input('Please enter the username of the teacher you wish to delete. Enter "cancel" to go back.\n')
+    if user_input == stop_action:
+        pass
+    else:
+        exists = check_if_valid(user_input)
+        if exists == zero:
+            print('Teacher not found.')
+        else:
+            username = user_input
+            user_input = input("Teacher found. Please enter the teacher's password to delete. Enter 'cancel' to go back.\n")
+            if user_input == stop_action:
+                pass
+            else:
+                if check_number_teachers() == one:
+                    print('No other teachers remaining. Cancelling action.')
+                else:
+                    if check_password(username, user_input):
+                        print('Password correct. Deleting teacher.')
+                        remove_teacher(username)
+                    else:
+                        print('Password incorrect. Please try again.')
+
+def change_password():
+    '''Function to change the password of an existing teacher.'''
+    user_input = input('''Please enter the username of the teacher whose password you want to change.
+Enter "cancel" to go back.\n''')
+    if user_input == stop_action:
+        pass
+    else:
+        exists = check_if_valid(user_input)
+        if exists == zero:
+            print('Teacher not found.')
+        else:
+            username = user_input
+            user_input = input('''Teacher found. Please enter the teacher's existing password.
+Enter "cancel" to go back.\n''')
+            if user_input == stop_action:
+                pass
+            else:
+                if check_password(username, user_input):
+                    password = input('Password correct. Please enter new password.')
+                    user_input = input('Re-enter password to confirm.')
+                    if user_input == password:
+                        print('Changing password.')
+                else:
+                    print('Password incorrect. Please try again.')
+
+
+        
+
     
-
-
 #Main 4 functions
 def veiw_info():
     while True:
-        user_input = input('''What would you like to veiw?
+        user_input = input('''What would you like to view?
     1. All information
     2. All Children's names
     3. All parent contact info
@@ -283,7 +401,7 @@ def delete_child():
                 print_named_info("first_name, second_name, age", first_name.title())
                 user_input = input('Is this the child you want to remove? (Y/N)\n')
                 if user_input.lower() == 'y':
-                    remove_row(first_name, '')
+                    remove_child(first_name, '')
                 elif user_input.lower() == 'n':
                     break
             elif results >= two:
@@ -293,45 +411,64 @@ def delete_child():
                 print_both_names(first_name.title(), last_name.title())
                 user_input = input()
                 if user_input.lower() == 'y':
-                    remove_row(first_name, last_name)
+                    remove_child(first_name, last_name)
                 
 
+#Extra (admin) functions
 
 def login():
-    login_complete = zero
+    login_complete = False
     login_attempts = three
-    while login_complete == zero:
-        user_input = input('Please enter username.\n')
-        username = user_input.title()
+    while login_complete == False:
+        username = input('Please enter username.\n')
+        username = username.lower()
         if check_if_valid(username) == zero:
             print('Invalid username. Check spelling and try again')
         else:
-            while True:
+            while login_complete != True:
                 if login_attempts == zero:
                     print('All attempts used. Try again later.')
-                    login_complete -= 1
+                    login_complete = False
                     break
                 user_input = input('Please enter password.\n')
                 if check_password(username, user_input):
                     print('Password correct.')
-                    login_complete = one
-                    break
+                    login_complete = True
+                    return True
                 else:
                     print('Password incorrect.')
                     login_attempts -= 1
                     print(f'You have {login_attempts} attempt(s) remaining')
 
+def admin_options():
+    user_input = zero
+    while user_input != str_four:
+        user_input = input('''What would you like to do?
+        1. Add new administrator
+        2. Remove administrator from system
+        3. Change an administrator password
+        4. Back\n''')
+        if user_input == str_one:
+            add_teacher()
+        elif user_input == str_two:
+            delete_teacher()
+        else:
+            print('Please try again.')
 
-#Main loop
-login()
-if login_complete == one:
+    
+
+
+#MAIN LOOP
+login_complete = login()
+if login_complete == True:
     while True:
         user_input = input('''What would you like to do?
         1. Veiw information
         2. Edit information
         3. Add a child
         4. Remove a child
-        5. Exit\n''')
+        5. Admin options
+        6. Exit\n''')
         if user_input == str_one:
             print('You have chosen to veiw information.')
             veiw_info()
@@ -345,8 +482,11 @@ if login_complete == one:
             print('You have chosen to remove a child')
             delete_child()
         elif user_input == str_five:
+            print('You have chosen to edit admin information.')
+            admin_options()
+        elif user_input == str_six:
             break
         else:
             print('That is not a valid input')
 else:
-    pass
+    print('Error')
