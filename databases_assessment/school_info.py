@@ -20,6 +20,7 @@ str_three = '3'
 str_four = '4'
 str_five = '5'
 str_six = '6'
+str_seven = '7'
 
 #Make functions:
 #Functions to check things
@@ -81,6 +82,18 @@ FROM passwords;''' #Count the number of rows in the table
         for result in results:
             return result[zero]
         
+def check_if_allergy(allergy):
+    allergy = allergy.title()
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT COUNT(allergen)
+FROM allergies
+WHERE allergen = "''' + allergy + '";' #Count the number of rows with the given allergy
+        cursor.execute(sql)
+        results = cursor.fetchall() #Results should be zero or one
+        for result in results:
+            return result[zero]
+        
 #Functions to print things
 
 def print_info(columns, column_count):
@@ -91,12 +104,11 @@ def print_info(columns, column_count):
         sql = "SELECT " + columns + " FROM children;"
         cursor.execute(sql)
         results = cursor.fetchall()
-        for value in results:
-            if column_count == two:
-                print(f"{value[0]:<15}{value[1]}")
-            elif column_count == 6:
+        for values in results:
+            for value in values:
+                print(f"{value}, ", end='')
+            print('')
                 
-
 
 def print_named_info(columns, firstname):
     '''Print one child's info from the "children" table
@@ -132,6 +144,41 @@ def print_both_names(firstname, lastname):
         for value in results:
             print(f'{value[0]} {value[1]}, {value[2]}')
 
+def print_allergy_list():
+     with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT allergen FROM allergies;'''
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        for values in results:
+            for value in values:
+                print(f'{value}, ', end='')
+        print('')
+
+def print_child_allergies():
+    while True:
+        user_input = input("Please enter the child's name. Enter 'cancel' to go back.")
+        user_input = user_input.title()
+        if user_input.lower() == stop_action:
+            break
+        elif check_num_values(user_input) == zero:
+            print('Child not found')
+        else:
+            with sqlite3.connect(DATABASE) as db:
+                cursor = db.cursor()
+                sql = '''SELECT allergies.allergen
+FROM ((allergy_bridge
+INNER JOIN children ON allergy_bridge.child_id = children.child_id)
+INNER JOIN allergies ON allergy_bridge.allergy_id = allergies.allergy_id)
+WHERE children.first_name = ''' + "'" + user_input + "';"
+                cursor.execute(sql)
+                results = cursor.fetchall()
+                print(f"{user_input}'s allergies are:")
+                for values in results:
+                    for value in values:
+                        print(f'{value}, ', end='')
+                print('')
+
 
 #Other functions with SQL
 
@@ -161,6 +208,21 @@ def remove_child(firstname, lastname):
             sql = "DELETE FROM children WHERE first_name = '" + firstname + "';"
             cursor.execute(sql)
     print('Action Complete.')
+
+def remove_possible_allergy():
+    while True:
+        user_input = input('Enter the name of the allergen you want to delete. Enter "cancel" to go back.')
+        if user_input == stop_action:
+            break
+        elif check_if_allergy(user_input) == zero:
+            print('Allergy not found.')
+        else:
+            user_input = user_input.title()
+            with sqlite3.connect(DATABASE) as db:
+                cursor = db.cursor()
+                sql = "DELETE FROM allergies WHERE allergen = '" + user_input + "';"
+                cursor.execute(sql)
+            print('Action complete.')
 
 
 #Edit existing things:
@@ -243,6 +305,22 @@ def create_teacher(username, password):
         sql = "INSERT INTO passwords (username, hashed_pw)"
         sql = sql + " VALUES ('" + username + "', '" + hashed_pw + "');"
         cursor.execute(sql)
+
+def add_allergy():
+    while True:
+        user_input = input('Please enter the name of the new allergen. Enter "cancel" to go back.\n')
+        if user_input == stop_action:
+            break
+        elif check_if_allergy(user_input) == one:
+            print('This allergy already exists.')
+        else:
+            user_input = user_input.title()
+            with sqlite3.connect(DATABASE) as db:
+                cursor = db.cursor()
+                sql = "INSERT INTO allergies (allergen)"
+                sql = sql + " VALUES ('" + user_input + "');"
+                cursor.execute(sql)
+            print(f'Allergy: {user_input} added to database.')
 
 
 
@@ -331,7 +409,7 @@ Enter "cancel" to go back.\n''')
         
 
     
-#Main 4 functions
+#Main 5 functions
 def veiw_info():
     while True:
         user_input = input('''What would you like to view?
@@ -474,6 +552,36 @@ def delete_child():
                 user_input = input()
                 if user_input.lower() == 'y':
                     remove_child(first_name, last_name)
+
+def allergy_options():
+    while True:
+        user_input = input('''What would you like to do?
+    1. Veiw list of allergies
+    2. Add new possible allergy
+    3. Remove a possible allergy
+    4. Veiw all children and their allergies
+    5. Veiw allergies for a specific child
+    6. Add an allergy for a child
+    7. Remove a child's allergy
+    8. Back\n''')
+        if user_input == str_one:
+            print_allergy_list()
+        elif user_input == str_two:
+            add_allergy()
+        elif user_input == str_three:
+            remove_possible_allergy()
+        elif user_input == str_four:
+            print('Unavailable')
+        elif user_input == str_five:
+            print_child_allergies()
+        elif user_input == str_six:
+            print('Unavailable')
+        elif user_input == str_seven:
+            print('Unavailable')
+        elif user_input == "8":
+            break
+        else:
+            print('Invalid input. Please try again.')
                 
 
 #Extra (admin) functions
@@ -524,17 +632,18 @@ def admin_options():
 
 #MAIN LOOP
 if __name__ == "__main__":
-    login_complete = True #login()
+    login_complete = login()
     if login_complete == True:
         print('.\n.\n.\n.')
         while True:
             user_input = input('''What would you like to do?
-            1. Veiw information
-            2. Edit information
-            3. Add a child
-            4. Remove a child
-            5. Admin options
-            6. Exit\n''')
+            1. Veiw basic information
+            2. Edit basic information
+            3. Veiw/edit allergies
+            4. Add a child
+            5. Remove a child
+            6. Admin options
+            7. Exit\n''')
             if user_input == str_one:
                 print('You have chosen to veiw information.')
                 veiw_info()
@@ -542,15 +651,18 @@ if __name__ == "__main__":
                 print('You have chosen to edit information')
                 edit_info()
             elif user_input == str_three:
+                print('You have chosen to veiw/edit allergies')
+                allergy_options()
+            elif user_input == str_four:
                 print('You have chosen to add a child')
                 new_child()
-            elif user_input == str_four:
+            elif user_input == str_five:
                 print('You have chosen to remove a child')
                 delete_child()
-            elif user_input == str_five:
+            elif user_input == str_six:
                 print('You have chosen to edit admin information.')
                 admin_options()
-            elif user_input == str_six:
+            elif user_input == str_seven:
                 break
             else:
                 print('That is not a valid input')
