@@ -1,7 +1,7 @@
 '''Code to show and change information in a database about a class of children.
      Made by Elizabeth Watts on 24/03/25'''
 
-#Note: All usernames are lowercase. The first letter of all child names is capitalised.
+#Note: All usernames are stored in lowercase. The child names and allergens are in title case. Passwords are case sensitive.
 from werkzeug.security import check_password_hash,generate_password_hash
 import sqlite3
 
@@ -83,6 +83,7 @@ FROM passwords;''' #Count the number of rows in the table
             return result[zero]
         
 def check_if_allergy(allergy):
+    '''Checks if an allergy exists. Returns int.'''
     allergy = allergy.title()
     with sqlite3.connect(DATABASE) as db:
         cursor = db.cursor()
@@ -93,6 +94,39 @@ WHERE allergen = "''' + allergy + '";' #Count the number of rows with the given 
         results = cursor.fetchall() #Results should be zero or one
         for result in results:
             return result[zero]
+        
+def check_has_allergy(name, allergen):
+    '''Check if a child has a given allergy assigned to them. Returns int.
+    Note: Make sure the allergy exists in the "allergies" table.'''
+    name = name.title()
+    allergen = allergen.title()
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = f"SELECT allergy_id FROM allergies WHERE allergen = '{allergen}';"
+        cursor.execute(sql)
+        results = cursor.fetchall() #Returns the allergy_id
+        for result in results:
+            for value in result:
+                try:
+                    allergy_id = str(value)
+                except ValueError:
+                    print('Error')
+        sql = f"SELECT child_id FROM children WHERE first_name = '{name}';"
+        cursor.execute(sql)
+        results = cursor.fetchall() #Returns the child_id
+        for result in results:
+            for value in result:
+                try:
+                    child_id = str(value)
+                except ValueError:
+                    print('Error')
+        sql = f"SELECT COUNT(allergy_id) FROM allergy_bridge WHERE child_id = {child_id} AND allergy_id = {allergy_id}"
+        cursor.execute(sql)
+        results = cursor.fetchall() #Should be zero or one
+        for result in results:
+            for value in result:
+                return value
+    
         
 #Functions to print things
 
@@ -157,7 +191,7 @@ def print_allergy_list():
 
 def print_child_allergies():
     while True:
-        user_input = input("Please enter the child's name. Enter 'cancel' to go back.")
+        user_input = input("Please enter the child's name. Enter 'cancel' to go back.\n")
         user_input = user_input.title()
         if user_input.lower() == stop_action:
             break
@@ -178,6 +212,27 @@ WHERE children.first_name = ''' + "'" + user_input + "';"
                     for value in values:
                         print(f'{value}, ', end='')
                 print('')
+
+def print_all_allergies():
+    name = ''
+    text = 'Allergies:'
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        sql = '''SELECT children.first_name, allergies.allergen
+FROM ((allergy_bridge
+INNER JOIN children ON allergy_bridge.child_id = children.child_id)
+INNER JOIN allergies ON allergy_bridge.allergy_id = allergies.allergy_id)
+ORDER BY children.first_name;'''
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        for values in results:
+            if values[0] == name:
+                text = text + ', ' + values[1]
+            else:
+                print(text)
+                name = values[0]
+                text = f'{name} - {values[1]}'
+        print(text)
 
 
 #Other functions with SQL
@@ -207,6 +262,7 @@ def remove_child(firstname, lastname):
             firstname = firstname.title()
             sql = "DELETE FROM children WHERE first_name = '" + firstname + "';"
             cursor.execute(sql)
+    delete_child_allergies(firstname)
     print('Action Complete.')
 
 def remove_possible_allergy():
@@ -223,6 +279,61 @@ def remove_possible_allergy():
                 sql = "DELETE FROM allergies WHERE allergen = '" + user_input + "';"
                 cursor.execute(sql)
             print('Action complete.')
+
+def remove_allergy():
+    while True:
+        user_input = input('''Please enter the first name of the child you want to remove the allergy of.
+Enter "cancel" to go back.\n''')
+        user_input = user_input.title()
+        if user_input.lower() == stop_action:
+            break
+        elif check_num_values(user_input) == zero:
+            print('Child not found.')
+        else:
+            child_name = user_input
+            user_input = input("Please enter the name of the allergen you wish to delete. Enter 'cancel' to go back to veiw the list of the child's allergies.\n")
+            user_input = user_input.title()
+            if user_input.lower() == stop_action:
+                break
+            elif check_if_allergy(user_input) == zero:
+                print('Allergy does not exist. Check spelling.')
+            else:
+                if check_has_allergy(child_name, user_input) != zero:
+                    with sqlite3.connect(DATABASE) as db:
+                        cursor = db.cursor()
+                        #Find child_id:
+                        sql = f"SELECT child_id FROM children WHERE first_name = '{child_name}';"
+                        cursor.execute(sql)
+                        results = cursor.fetchall()
+                        for values in results:
+                            for value in values:
+                                child_id = str(value)
+                        #Find allergy_id:
+                        sql = f"SELECT allergy_id FROM allergies WHERE allergen = '{user_input}';"
+                        cursor.execute(sql)
+                        results = cursor.fetchall()
+                        for values in results:
+                            for value in values:
+                                allergy_id = str(value)
+                        #assign allergy_id to child_id:
+                        sql = f"DELETE FROM allergy_bridge WHERE child_id = '{child_id}' AND allergy_id = '{allergy_id}';"
+                        cursor.execute(sql)
+                        print('Allergy deleted.')
+                else:
+                    print(f'{child_name} does not have this allergy.')
+
+def delete_child_allergies(child_name):
+    with sqlite3.connect(DATABASE) as db:
+        cursor = db.cursor()
+        #Find child_id:
+        sql = f"SELECT child_id FROM children WHERE first_name = '{child_name}';"
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        for values in results:
+            for value in values:
+                child_id = str(value)
+        sql = f"DELETE FROM allergy_bridge WHERE child_id = '{child_id}';"
+        cursor.execute(sql)
 
 
 #Edit existing things:
@@ -307,10 +418,11 @@ def create_teacher(username, password):
         cursor.execute(sql)
 
 def add_allergy():
-    while True:
+    user_input = zero
+    while user_input != stop_action:
         user_input = input('Please enter the name of the new allergen. Enter "cancel" to go back.\n')
         if user_input == stop_action:
-            break
+            pass
         elif check_if_allergy(user_input) == one:
             print('This allergy already exists.')
         else:
@@ -322,6 +434,52 @@ def add_allergy():
                 cursor.execute(sql)
             print(f'Allergy: {user_input} added to database.')
 
+def assign_allergy():
+    while True:
+        user_input = input('''Please enter the first name of the child you want to assign an allergy to.
+Enter "cancel" to go back.\n''')
+        user_input = user_input.title()
+        if user_input.lower() == stop_action:
+            break
+        elif check_num_values(user_input) == zero:
+            print('Child not found.')
+        else:
+            child_name = user_input
+            user_input = input('Please enter the name of the allergen.\n')
+            user_input = user_input.title()
+            if check_if_allergy(user_input) == zero:
+                user_input = input('''Allergy not found. Would you like to add it as a possible allergy?
+1. Yes
+2. No\n''')
+                if user_input == str_one:
+                    add_allergy()
+                else:
+                    pass
+            else:
+                if check_has_allergy(child_name, user_input) != zero:
+                    print(f'{child_name} already has this allergy.')
+                else:
+                    print(f'Assigning allergy: {user_input} to {child_name}.')
+                    with sqlite3.connect(DATABASE) as db:
+                        cursor = db.cursor()
+                        #Find child_id:
+                        sql = f"SELECT child_id FROM children WHERE first_name = '{child_name}';"
+                        cursor.execute(sql)
+                        results = cursor.fetchall()
+                        for values in results:
+                            for value in values:
+                                child_id = str(value)
+                        #Find allergy_id:
+                        sql = f"SELECT allergy_id FROM allergies WHERE allergen = '{user_input}';"
+                        cursor.execute(sql)
+                        results = cursor.fetchall()
+                        for values in results:
+                            for value in values:
+                                allergy_id = str(value)
+                        #assign allergy_id to child_id:
+                        sql = "INSERT INTO allergy_bridge (child_id, allergy_id)"
+                        sql = sql + " VALUES ('" + child_id + "', '" + allergy_id + "');"
+                        cursor.execute(sql)
 
 
 #Other functions without SQL:
@@ -571,13 +729,13 @@ def allergy_options():
         elif user_input == str_three:
             remove_possible_allergy()
         elif user_input == str_four:
-            print('Unavailable')
+            print_all_allergies()
         elif user_input == str_five:
             print_child_allergies()
         elif user_input == str_six:
-            print('Unavailable')
+            assign_allergy()
         elif user_input == str_seven:
-            print('Unavailable')
+            remove_allergy()
         elif user_input == "8":
             break
         else:
